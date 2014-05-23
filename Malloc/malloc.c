@@ -8,7 +8,6 @@
 
 #define ALIGNMENT 8
 
-
 int takeCount = 0;
 
 struct Header {
@@ -50,23 +49,12 @@ void insertIntoFreeList(Header *header) {
     assert(header != NULL);
     assert(header->size);
     header->next = NULL;
-    if (!header->size) {
-        
-        
-    }
     Header *current = freeList;
     Header *prev = NULL;
     while (current && current < header) {
         prev = current;
         current = current->next;
     }
-    
-    if (prev == header) {
-        
-        printf("HM");
-        
-    }
-    
     if (prev) {
         prev->next = header;
     } else {
@@ -75,42 +63,66 @@ void insertIntoFreeList(Header *header) {
     header->next = current;
 }
 
-Header * getEmptyHeader(size_t size) {
+void removeFromFreeList(Header *header) {
+    Header *current = freeList;
+    Header *prev = NULL;
+    while (current != header) {
+        prev = current;
+        current = current->next;
+    }
+    if (!current) return;
+    if (prev) {
+        prev->next = current->next;
+    } else {
+        freeList = current->next;
+    }
+}
+
+void addRemainingHeader(Header *header, size_t size) {
+    long start = (long)header + size + sizeof(Header);
+    long end = (long)header + header->size + sizeof(Header);
+    Header * nextHeader = getNextHeader(start, end);
+    if (nextHeader) {
+        insertIntoFreeList(nextHeader);
+    }
+}
+
+Header * firstFitHeader(size_t size) {
     takeCount++;
-	Header *prev = NULL;
 	Header *current = freeList;
 	while (current) {
 		if (current->size >= size) {
-            if (!prev) {
-                freeList = current->next;
-            } else {
-                prev->next = current->next;
-            }
-            long start = (long)current + size + sizeof(Header);
-            long end = (long)current + current->size + sizeof(Header);
-            
-            Header * nextHeader = getNextHeader(start, end);
-            
-            
-            //printf("%p, %p\n", current, nextHeader);
-            
-            if (nextHeader) {
-                assert(size < current->size);
-                assert((long)current + size + sizeof(Header) <= (long)nextHeader);
-                assert(nextHeader > current);
-                assert((long)nextHeader->size < end - start);
-                
-                insertIntoFreeList(nextHeader);
-            }
             current->size = size;
+            removeFromFreeList(current);
+            addRemainingHeader(current, size);
 			return current;
 		}
-		prev = current;
         current = current->next;
 	}
 	return NULL;
 }
 
+Header * bestFitHeader(size_t size) {
+	Header *current = freeList;
+    Header *bestHeader = NULL;    
+	while (current) {
+		if (current->size >= size) {
+            if (!bestHeader || (bestHeader->size - size) > (current->size - size)) {
+                bestHeader = current;
+            }
+        }
+        current = current->next;
+    }
+    if (!bestHeader) return NULL;
+    bestHeader->size = size;
+    removeFromFreeList(bestHeader);
+    addRemainingHeader(bestHeader, size);
+    return bestHeader;
+}
+
+Header * getEmptyHeader(size_t size) {
+    return bestFitHeader(size);
+}
 
 void allocateMoreSpace(size_t size) {
 	long pageSize = sysconf(_SC_PAGESIZE);
@@ -127,7 +139,7 @@ void allocateMoreSpace(size_t size) {
     if (nextHeader) {
         insertIntoFreeList(nextHeader);
     } else {
-        //header->size = totalSize - sizeof(Header);
+        header->size = totalSize - sizeof(Header);
     }
 }
 
@@ -146,14 +158,13 @@ void * realloc(void *p, size_t size) {
     if (size <= 0) return NULL;
     if (!p) return malloc(size);
     Header *header = (Header *)p - 1;
-    
     void *data = malloc(size);
     long minSize = size < header->size ? size : header->size;
     long i;
     for (i = 0; i < minSize; i++) {
         ((char *)data)[i] = ((char *)p)[i];
     }
-    //free(p);
+    free(p);
     return data;
 }
 
@@ -162,6 +173,7 @@ void mergeList() {
     Header *current = freeList;
     while (current && current->next) {
         if ((long)current + current->size + sizeof(Header) == (long)current->next) {
+            //printf("MERGED LIST\n");
             current->size += sizeof(Header) + current->next->size;
             current->next = current->next->next;
         }
@@ -175,5 +187,5 @@ void free(void *p) {
     assert(header);
     assert(header->size);
     insertIntoFreeList(header);
-    //mergeList();
+    mergeList();
 }
