@@ -15,6 +15,15 @@ struct Header {
 
 Header *freeList = NULL;
 
+
+static void * __endHeap = 0;
+
+void * endHeap(void)
+{
+    if(__endHeap == 0) __endHeap = sbrk(0);
+    return __endHeap;
+}
+
 long closestAlignedAddress(long address) {
     long nextAddress = address - (address % ALIGNMENT);
     if (nextAddress < address) {
