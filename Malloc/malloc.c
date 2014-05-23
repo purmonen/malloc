@@ -55,12 +55,23 @@ void insertIntoList(Header **list, Header *header) {
         prev = current;
         current = current->next;
     }
+    header->next = current;
+
+    if (header->next) {
+        if ((long)header + header->size + HEADERSIZE == (long)header->next) {
+            header->size += HEADERSIZE + header->next->size;
+            header->next = header->next->next;
+        }
+    }
     if (prev) {
         prev->next = header;
+        if ((long)prev + prev->size + HEADERSIZE == (long)header) {
+            prev->size += HEADERSIZE + header->size;
+            prev->next = header->next;
+        }
     } else {
         *list = header;
     }
-    header->next = current;
 }
 
 void removeFromList(Header **list, Header *header) {
@@ -172,22 +183,8 @@ void * realloc(void *p, size_t size) {
     return data;
 }
 
-void mergeList(Header **list) {
-    if (!*list) return;
-    Header *current = *list;
-    while (current && current->next) {
-        if ((long)current + current->size + HEADERSIZE == (long)current->next) {
-            current->size += HEADERSIZE + current->next->size;
-            current->next = current->next->next;
-        } else {
-            current = current->next;
-        }
-    }
-}
-
 void free(void *p) {
     if (!p) return;
     Header *header = headerFromAddress(p);
     insertIntoList(&freeList, header);
-    mergeList(&freeList);
 }
