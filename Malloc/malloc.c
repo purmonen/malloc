@@ -8,6 +8,8 @@
 #include <assert.h>
 
 #define ALIGNMENT 8
+#define ALIGNMENTMASK ~7
+#define HEADERSIZE ((sizeof(Header)+ALIGNMENT-1) & ALIGNMENTMASK)
 
 struct Header {
 	struct Header *next;
@@ -32,9 +34,11 @@ long closestAlignedAddress(long address) {
     return nextAddress;
 }
 
+
+
 Header * getNextHeader(long start, long end) {
 	long nextPosition = closestAlignedAddress(start);
-	long emptySpace = end - nextPosition - sizeof(Header);
+	long emptySpace = end - nextPosition - HEADERSIZE;
 
     if (emptySpace <= 0) return NULL;
     Header *header = (Header *)nextPosition;
@@ -75,8 +79,8 @@ void removeFromList(Header **list, Header *header) {
 }
 
 void addRemainingHeaderToList(Header **list, Header *header, size_t size) {
-    long start = (long)header + size + sizeof(Header);
-    long end = (long)header + header->size + sizeof(Header);
+    long start = (long)header + size + HEADERSIZE;
+    long end = (long)header + header->size + HEADERSIZE;
     Header * nextHeader = getNextHeader(start, end);
     if (nextHeader) {
         header->size = size;
@@ -120,14 +124,23 @@ Header * getEmptyHeaderFromList(Header **list, size_t size) {
 
 void allocateMoreSpace(size_t size) {
 	long pageSize = sysconf(_SC_PAGESIZE);
-	long usedSize = (int)size + sizeof(Header);
+	long usedSize = (int)size + HEADERSIZE;
 	long pages = (usedSize - 1) / pageSize + 1;
 	long totalSize = pages * pageSize;
 	Header * header = mmap(__endHeap, totalSize, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
     __endHeap += totalSize;
     if (!header) return;
-	header->size = totalSize - sizeof(Header);
+	header->size = totalSize - HEADERSIZE;
 	insertIntoList(&freeList, header);
+}
+
+
+Header * headerFromAddress(void *address) {
+    return (Header *)((char *)address - HEADERSIZE);
+}
+
+void * addressFromHeader(Header *header) {
+    return (void *)((char *)header + HEADERSIZE);
 }
 
 void * malloc(size_t size) {
@@ -138,8 +151,9 @@ void * malloc(size_t size) {
         emptyHeader = getEmptyHeaderFromList(&freeList, size);
         if (!emptyHeader) return NULL;
 	}
-    return (void *)(emptyHeader + 1);
+    return addressFromHeader(emptyHeader);
 }
+
 
 void * realloc(void *p, size_t size) {
     if (size <= 0) {
@@ -147,7 +161,7 @@ void * realloc(void *p, size_t size) {
         return NULL;
     }
     if (!p) return malloc(size);
-    Header *header = (Header *)p - 1;
+    Header *header = headerFromAddress(p);
     void *data = malloc(size);
     long minSize = size < header->size ? size : header->size;
     long i;
@@ -162,8 +176,8 @@ void mergeList(Header **list) {
     if (!*list) return;
     Header *current = *list;
     while (current && current->next) {
-        if ((long)current + current->size + sizeof(Header) == (long)current->next) {
-            current->size += sizeof(Header) + current->next->size;
+        if ((long)current + current->size + HEADERSIZE == (long)current->next) {
+            current->size += HEADERSIZE + current->next->size;
             current->next = current->next->next;
         } else {
             current = current->next;
@@ -173,7 +187,7 @@ void mergeList(Header **list) {
 
 void free(void *p) {
     if (!p) return;
-    Header *header = (Header *)p - 1;
+    Header *header = headerFromAddress(p);
     insertIntoList(&freeList, header);
     mergeList(&freeList);
 }
