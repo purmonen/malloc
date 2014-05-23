@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <math.h>
+#include <assert.h>
 
 #define ALIGNMENT 8
 
@@ -17,7 +18,6 @@ struct Header {
 
 Header *freeList = NULL;
 
-
 void printList() {
 	int i = 0;
 	printf("THIS IS HOW THE LIST LOOKS RIGHT NOW\n");
@@ -27,19 +27,19 @@ void printList() {
 	}
 }
 
-Header * getNextHeader(long start, long end) {
+long closestAlignedAddress(long address) {
+    long nextAddress = address - (address % ALIGNMENT);
+    if (nextAddress < address) {
+        nextAddress += ALIGNMENT;
+    }
+    return nextAddress;
+}
 
-    
-	long nextPosition = start - (start % ALIGNMENT);
-    if (nextPosition < start) {
-        nextPosition += ALIGNMENT;
-    }
+Header * getNextHeader(long start, long end) {
+	long nextPosition = closestAlignedAddress(start);
 	long emptySpace = end - nextPosition - sizeof(Header);
+
     if (emptySpace <= 0) return NULL;
-    
-    if (emptySpace > 80 * 1000) {
-        printf("HMM!");
-    }
     Header *header = (Header *)nextPosition;
     header->size = emptySpace;
     header->next = NULL;
@@ -47,8 +47,12 @@ Header * getNextHeader(long start, long end) {
 }
 
 void insertIntoFreeList(Header *header) {
-    if (header->size > 80 * 1000) {
-        printf("THE HELL!");
+    assert(header != NULL);
+    assert(header->size);
+    header->next = NULL;
+    if (!header->size) {
+        
+        
     }
     Header *current = freeList;
     Header *prev = NULL;
@@ -56,6 +60,13 @@ void insertIntoFreeList(Header *header) {
         prev = current;
         current = current->next;
     }
+    
+    if (prev == header) {
+        
+        printf("HM");
+        
+    }
+    
     if (prev) {
         prev->next = header;
     } else {
@@ -64,35 +75,38 @@ void insertIntoFreeList(Header *header) {
     header->next = current;
 }
 
-void * takeEmptySpace(size_t size) {
+Header * getEmptyHeader(size_t size) {
     takeCount++;
 	Header *prev = NULL;
-	Header *current = NULL;
-	for (current = freeList; current != NULL; current = current->next) {
+	Header *current = freeList;
+	while (current) {
 		if (current->size >= size) {
+            if (!prev) {
+                freeList = current->next;
+            } else {
+                prev->next = current->next;
+            }
             long start = (long)current + size + sizeof(Header);
             long end = (long)current + current->size + sizeof(Header);
+            
             Header * nextHeader = getNextHeader(start, end);
-            if (nextHeader && nextHeader->size > 80 * 1000) {
-                printf("THE FUCK!\n");
-            }
+            
+            
+            //printf("%p, %p\n", current, nextHeader);
+            
             if (nextHeader) {
-                if (!prev) {
-                    freeList = nextHeader;
-                } else {
-                    prev->next = nextHeader;
-                    nextHeader->next = current->next;
-                }
-            } else {
-                if (!prev) {
-                    freeList = current->next;
-                } else {
-                    prev->next = current->next;
-                }
+                assert(size < current->size);
+                assert((long)current + size + sizeof(Header) <= (long)nextHeader);
+                assert(nextHeader > current);
+                assert((long)nextHeader->size < end - start);
+                
+                insertIntoFreeList(nextHeader);
             }
-			return current+1;
+            current->size = size;
+			return current;
 		}
 		prev = current;
+        current = current->next;
 	}
 	return NULL;
 }
@@ -104,47 +118,32 @@ void allocateMoreSpace(size_t size) {
 	long pages = usedSize / pageSize + 1;
 	long totalSize = pages * pageSize;
 	Header * header = mmap(NULL, totalSize, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
-    
-    if (!header) {
-        printf("NO HEADER\n");
-    }
-    
-    if (size > 8 * 10000) {
-        printf("LARGE MEMORY\n");
-    }
-    
+    assert(header);
 	header->size = size;
-    header->next = NULL;
-    
 	insertIntoFreeList(header);
-    
     long start = (long)header + usedSize;
     long end = (long)header + totalSize;
     Header *nextHeader = getNextHeader(start, end);
-    
-    
-    if (nextHeader->size > 80 * 1000) {
-        printf("WTF\n");
-    }
-    
     if (nextHeader) {
         insertIntoFreeList(nextHeader);
+    } else {
+        //header->size = totalSize - sizeof(Header);
     }
 }
 
 void * malloc(size_t size) {
     if (size <= 0) return NULL;
-	void * emptySpace = takeEmptySpace(size);
-	if (!emptySpace) {
+	Header * emptyHeader = getEmptyHeader(size);
+	if (!emptyHeader) {
 		allocateMoreSpace(size);
-        emptySpace = takeEmptySpace(size);
-		return emptySpace;
-	} else {
-		return emptySpace;
+        emptyHeader = getEmptyHeader(size);
+        assert(emptyHeader);
 	}
+    return (void *)(emptyHeader + 1);
 }
 
 void * realloc(void *p, size_t size) {
+    if (size <= 0) return NULL;
     if (!p) return malloc(size);
     Header *header = (Header *)p - 1;
     
@@ -173,11 +172,8 @@ void mergeList() {
 void free(void *p) {
     if (!p) return;
     Header *header = (Header *)p - 1;
-    if (header == freeList) return;
-    header->next = freeList;
-    if (header->size > 80 * 1000) {
-        printf("FUCKED ME UP");
-    }
-    freeList = header;
-    mergeList();
+    assert(header);
+    assert(header->size);
+    insertIntoFreeList(header);
+    //mergeList();
 }
