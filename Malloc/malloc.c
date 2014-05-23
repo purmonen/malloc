@@ -2,6 +2,7 @@
 #include <sys/mman.h>
 #include <stdio.h>
 #include <errno.h>
+#include "brk.h"
 #include <unistd.h>
 #include <math.h>
 #include <assert.h>
@@ -14,7 +15,6 @@ struct Header {
 } typedef Header;
 
 Header *freeList = NULL;
-
 
 static void * __endHeap = 0;
 
@@ -79,6 +79,7 @@ void addRemainingHeaderToList(Header **list, Header *header, size_t size) {
     long end = (long)header + header->size + sizeof(Header);
     Header * nextHeader = getNextHeader(start, end);
     if (nextHeader) {
+        header->size = size;
         insertIntoList(list, nextHeader);
     }
 }
@@ -87,7 +88,6 @@ Header * firstFitHeaderFromList(Header **list, size_t size) {
 	Header *current = *list;
 	while (current) {
 		if (current->size >= size) {
-            current->size = size;
             removeFromList(list, current);
             addRemainingHeaderToList(list, current, size);
 			return current;
@@ -109,14 +109,13 @@ Header * bestFitHeaderFromList(Header **list, size_t size) {
         current = current->next;
     }
     if (!bestHeader) return NULL;
-    bestHeader->size = size;
     removeFromList(list, bestHeader);
     addRemainingHeaderToList(list, bestHeader, size);
     return bestHeader;
 }
 
 Header * getEmptyHeaderFromList(Header **list, size_t size) {
-    return bestFitHeaderFromList(list, size);
+    return firstFitHeaderFromList(list, size);
 }
 
 void allocateMoreSpace(size_t size) {
@@ -124,18 +123,11 @@ void allocateMoreSpace(size_t size) {
 	long usedSize = (int)size + sizeof(Header);
 	long pages = (usedSize - 1) / pageSize + 1;
 	long totalSize = pages * pageSize;
-	Header * header = mmap(NULL, totalSize, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
+	Header * header = mmap(__endHeap, totalSize, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
+    __endHeap += totalSize;
     if (!header) return;
-	header->size = size;
+	header->size = totalSize - sizeof(Header);
 	insertIntoList(&freeList, header);
-    long start = (long)header + usedSize;
-    long end = (long)header + totalSize;
-    Header *nextHeader = getNextHeader(start, end);
-    if (nextHeader) {
-        insertIntoList(&freeList, nextHeader);
-    } else {
-        header->size = totalSize - sizeof(Header);
-    }
 }
 
 void * malloc(size_t size) {
@@ -150,7 +142,10 @@ void * malloc(size_t size) {
 }
 
 void * realloc(void *p, size_t size) {
-    if (size <= 0) return NULL;
+    if (size <= 0) {
+        free(p);
+        return NULL;
+    }
     if (!p) return malloc(size);
     Header *header = (Header *)p - 1;
     void *data = malloc(size);
@@ -168,19 +163,17 @@ void mergeList(Header **list) {
     Header *current = *list;
     while (current && current->next) {
         if ((long)current + current->size + sizeof(Header) == (long)current->next) {
-            //printf("MERGED LIST\n");
             current->size += sizeof(Header) + current->next->size;
             current->next = current->next->next;
+        } else {
+            current = current->next;
         }
-        current = current->next;
     }
 }
 
 void free(void *p) {
     if (!p) return;
     Header *header = (Header *)p - 1;
-    assert(header);
-    assert(header->size);
     insertIntoList(&freeList, header);
     mergeList(&freeList);
 }
