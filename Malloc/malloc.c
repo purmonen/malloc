@@ -8,23 +8,12 @@
 
 #define ALIGNMENT 8
 
-int takeCount = 0;
-
 struct Header {
 	struct Header *next;
 	size_t size;
 } typedef Header;
 
 Header *freeList = NULL;
-
-void printList() {
-	int i = 0;
-	printf("THIS IS HOW THE LIST LOOKS RIGHT NOW\n");
-	for (;freeList != NULL; freeList = freeList->next) {
-		printf("%d, size: %ld, address: %p\n", i, freeList->size, freeList);
-		i++;
-	}
-}
 
 long closestAlignedAddress(long address) {
     long nextAddress = address - (address % ALIGNMENT);
@@ -45,11 +34,9 @@ Header * getNextHeader(long start, long end) {
     return header;
 }
 
-void insertIntoFreeList(Header *header) {
-    assert(header != NULL);
-    assert(header->size);
+void insertIntoList(Header **list, Header *header) {
     header->next = NULL;
-    Header *current = freeList;
+    Header *current = *list;
     Header *prev = NULL;
     while (current && current < header) {
         prev = current;
@@ -58,13 +45,13 @@ void insertIntoFreeList(Header *header) {
     if (prev) {
         prev->next = header;
     } else {
-        freeList = header;
+        *list = header;
     }
     header->next = current;
 }
 
-void removeFromFreeList(Header *header) {
-    Header *current = freeList;
+void removeFromList(Header **list, Header *header) {
+    Header *current = *list;
     Header *prev = NULL;
     while (current != header) {
         prev = current;
@@ -74,27 +61,26 @@ void removeFromFreeList(Header *header) {
     if (prev) {
         prev->next = current->next;
     } else {
-        freeList = current->next;
+        *list = current->next;
     }
 }
 
-void addRemainingHeader(Header *header, size_t size) {
+void addRemainingHeaderToList(Header **list, Header *header, size_t size) {
     long start = (long)header + size + sizeof(Header);
     long end = (long)header + header->size + sizeof(Header);
     Header * nextHeader = getNextHeader(start, end);
     if (nextHeader) {
-        insertIntoFreeList(nextHeader);
+        insertIntoList(list, nextHeader);
     }
 }
 
-Header * firstFitHeader(size_t size) {
-    takeCount++;
-	Header *current = freeList;
+Header * firstFitHeaderFromList(Header **list, size_t size) {
+	Header *current = *list;
 	while (current) {
 		if (current->size >= size) {
             current->size = size;
-            removeFromFreeList(current);
-            addRemainingHeader(current, size);
+            removeFromList(list, current);
+            addRemainingHeaderToList(list, current, size);
 			return current;
 		}
         current = current->next;
@@ -102,8 +88,8 @@ Header * firstFitHeader(size_t size) {
 	return NULL;
 }
 
-Header * bestFitHeader(size_t size) {
-	Header *current = freeList;
+Header * bestFitHeaderFromList(Header **list, size_t size) {
+	Header *current = *list;
     Header *bestHeader = NULL;    
 	while (current) {
 		if (current->size >= size) {
@@ -115,29 +101,29 @@ Header * bestFitHeader(size_t size) {
     }
     if (!bestHeader) return NULL;
     bestHeader->size = size;
-    removeFromFreeList(bestHeader);
-    addRemainingHeader(bestHeader, size);
+    removeFromList(list, bestHeader);
+    addRemainingHeaderToList(list, bestHeader, size);
     return bestHeader;
 }
 
-Header * getEmptyHeader(size_t size) {
-    return bestFitHeader(size);
+Header * getEmptyHeaderFromList(Header **list, size_t size) {
+    return bestFitHeaderFromList(list, size);
 }
 
 void allocateMoreSpace(size_t size) {
 	long pageSize = sysconf(_SC_PAGESIZE);
 	long usedSize = (int)size + sizeof(Header);
-	long pages = usedSize / pageSize + 1;
+	long pages = (usedSize - 1) / pageSize + 1;
 	long totalSize = pages * pageSize;
 	Header * header = mmap(NULL, totalSize, PROT_READ|PROT_WRITE, MAP_ANON|MAP_SHARED, -1, 0);
-    assert(header);
+    if (!header) return;
 	header->size = size;
-	insertIntoFreeList(header);
+	insertIntoList(&freeList, header);
     long start = (long)header + usedSize;
     long end = (long)header + totalSize;
     Header *nextHeader = getNextHeader(start, end);
     if (nextHeader) {
-        insertIntoFreeList(nextHeader);
+        insertIntoList(&freeList, nextHeader);
     } else {
         header->size = totalSize - sizeof(Header);
     }
@@ -145,11 +131,11 @@ void allocateMoreSpace(size_t size) {
 
 void * malloc(size_t size) {
     if (size <= 0) return NULL;
-	Header * emptyHeader = getEmptyHeader(size);
+	Header * emptyHeader = getEmptyHeaderFromList(&freeList, size);
 	if (!emptyHeader) {
 		allocateMoreSpace(size);
-        emptyHeader = getEmptyHeader(size);
-        assert(emptyHeader);
+        emptyHeader = getEmptyHeaderFromList(&freeList, size);
+        if (!emptyHeader) return NULL;
 	}
     return (void *)(emptyHeader + 1);
 }
@@ -168,9 +154,9 @@ void * realloc(void *p, size_t size) {
     return data;
 }
 
-void mergeList() {
-    if (!freeList) return;
-    Header *current = freeList;
+void mergeList(Header **list) {
+    if (!*list) return;
+    Header *current = *list;
     while (current && current->next) {
         if ((long)current + current->size + sizeof(Header) == (long)current->next) {
             //printf("MERGED LIST\n");
@@ -186,6 +172,6 @@ void free(void *p) {
     Header *header = (Header *)p - 1;
     assert(header);
     assert(header->size);
-    insertIntoFreeList(header);
-    mergeList();
+    insertIntoList(&freeList, header);
+    mergeList(&freeList);
 }

@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		26800035192F875100530C7D /* tstalgorithms.c in Sources */ = {isa = PBXBuildFile; fileRef = 26800034192F875100530C7D /* tstalgorithms.c */; };
+		26800038192F878700530C7D /* tstextreme.c in Sources */ = {isa = PBXBuildFile; fileRef = 26800037192F878700530C7D /* tstextreme.c */; };
+		2680003A192F879600530C7D /* tstmalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 26800039192F879600530C7D /* tstmalloc.c */; };
+		2680003C192F87A400530C7D /* tstmemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 2680003B192F87A400530C7D /* tstmemory.c */; };
+		2680003E192F87B000530C7D /* tstmerge.c in Sources */ = {isa = PBXBuildFile; fileRef = 2680003D192F87B000530C7D /* tstmerge.c */; };
+		26800040192F87BF00530C7D /* tstrealloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 2680003F192F87BF00530C7D /* tstrealloc.c */; };
 		26CDBA70192E31A700B904F9 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 26CDBA6F192E31A700B904F9 /* main.c */; };
 		26CDBA72192E31A700B904F9 /* Malloc.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 26CDBA71192E31A700B904F9 /* Malloc.1 */; };
 		26CDBA79192E31BE00B904F9 /* malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 26CDBA78192E31BE00B904F9 /* malloc.c */; };
@@ -26,6 +32,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		26800034192F875100530C7D /* tstalgorithms.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tstalgorithms.c; sourceTree = "<group>"; };
+		26800036192F876A00530C7D /* brk.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = brk.h; path = ../brk.h; sourceTree = "<group>"; };
+		26800037192F878700530C7D /* tstextreme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tstextreme.c; sourceTree = "<group>"; };
+		26800039192F879600530C7D /* tstmalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tstmalloc.c; sourceTree = "<group>"; };
+		2680003B192F87A400530C7D /* tstmemory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tstmemory.c; sourceTree = "<group>"; };
+		2680003D192F87B000530C7D /* tstmerge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tstmerge.c; sourceTree = "<group>"; };
+		2680003F192F87BF00530C7D /* tstrealloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tstrealloc.c; sourceTree = "<group>"; };
+		26800041192F87E300530C7D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		26800042192F87FF00530C7D /* RUN_TESTS */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RUN_TESTS; sourceTree = "<group>"; };
 		26CDBA6C192E31A700B904F9 /* Malloc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Malloc; sourceTree = BUILT_PRODUCTS_DIR; };
 		26CDBA6F192E31A700B904F9 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		26CDBA71192E31A700B904F9 /* Malloc.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = Malloc.1; sourceTree = "<group>"; };
@@ -64,10 +79,19 @@
 		26CDBA6E192E31A700B904F9 /* Malloc */ = {
 			isa = PBXGroup;
 			children = (
-				26CDBA6F192E31A700B904F9 /* main.c */,
 				26CDBA7B192E4B0400B904F9 /* tst.h */,
-				26CDBA78192E31BE00B904F9 /* malloc.c */,
+				26800036192F876A00530C7D /* brk.h */,
+				26CDBA6F192E31A700B904F9 /* main.c */,
 				26CDBA7A192E31C900B904F9 /* malloc.h */,
+				26CDBA78192E31BE00B904F9 /* malloc.c */,
+				26800034192F875100530C7D /* tstalgorithms.c */,
+				26800037192F878700530C7D /* tstextreme.c */,
+				26800039192F879600530C7D /* tstmalloc.c */,
+				2680003B192F87A400530C7D /* tstmemory.c */,
+				2680003D192F87B000530C7D /* tstmerge.c */,
+				2680003F192F87BF00530C7D /* tstrealloc.c */,
+				26800041192F87E300530C7D /* Makefile */,
+				26800042192F87FF00530C7D /* RUN_TESTS */,
 				26CDBA71192E31A700B904F9 /* Malloc.1 */,
 			);
 			path = Malloc;
@@ -124,8 +148,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2680003C192F87A400530C7D /* tstmemory.c in Sources */,
 				26CDBA70192E31A700B904F9 /* main.c in Sources */,
+				26800040192F87BF00530C7D /* tstrealloc.c in Sources */,
+				2680003A192F879600530C7D /* tstmalloc.c in Sources */,
 				26CDBA79192E31BE00B904F9 /* malloc.c in Sources */,
+				26800038192F878700530C7D /* tstextreme.c in Sources */,
+				26800035192F875100530C7D /* tstalgorithms.c in Sources */,
+				2680003E192F87B000530C7D /* tstmerge.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -235,6 +265,7 @@
 				26CDBA77192E31A700B904F9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
